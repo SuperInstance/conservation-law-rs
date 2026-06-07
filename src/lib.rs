@@ -8,6 +8,7 @@ pub mod lagrangian;
 pub mod noether;
 pub mod hamiltonian;
 pub mod conserved;
+pub mod fleet_integration;
 
 use num_traits::Float;
 
