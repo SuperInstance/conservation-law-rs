@@ -1,0 +1,121 @@
+[crate]
+name = "conservation-law-rs"
+version = "0.1.0"
+layer = "conservation"
+description = "Conservation laws for agent dynamics — Lagrangian mechanics, Noether theorem, and symmetry-based conservation verification"
+
+[provides]
+capabilities = [
+  { name = "lagrangian_mechanics", type = "module", description = "Euler-Lagrange equations, symplectic integration, agent state in N-dim configuration space" },
+  { name = "noether_theorem", type = "module", description = "Symmetry detection and Noether charge computation for conserved quantities" },
+  { name = "hamiltonian_system", type = "module", description = "Legendre transform, canonical equations, Poisson brackets, Liouville theorem" },
+  { name = "conserved_quantity_detection", type = "struct", description = "Detects and verifies conserved quantities from trajectories" },
+  { name = "fleet_conservation", type = "struct", description = "Energy conservation across agent fleets with anomaly detection and circuit breaker" },
+  { name = "central_difference", type = "fn", description = "Central difference gradient and time derivative computation" }
+]
+exports = [
+  "lagrangian::AgentState",
+  "lagrangian::Lagrangian",
+  "lagrangian::MechanicalLagrangian",
+  "lagrangian::SymplecticIntegrator",
+  "lagrangian::total_energy",
+  "noether::Symmetry",
+  "noether::TranslationSymmetry",
+  "noether::TimeTranslationSymmetry",
+  "noether::RotationSymmetry",
+  "noether::NoetherCharge",
+  "hamiltonian::PhaseSpacePoint",
+  "hamiltonian::Hamiltonian",
+  "hamiltonian::PoissonBracket",
+  "conserved::ConservedQuantity",
+  "conserved::ConservationDetector",
+  "fleet_integration::FleetConservation",
+  "fleet_integration::ConservationReport",
+  "fleet_integration::CircuitState",
+  "Scalar",
+  "central_diff",
+  "time_derivative"
+]
+
+[requires]
+optional = [
+  { crate = "fleet-warden-rs", reason = "Anomaly detection metrics feed into conservation audits", import = "fleet_integration::FleetConservation" },
+  { crate = "t-minus-rs", reason = "Deadline-aware energy transfers and scheduled conservation checks", import = "deadline::DeadlineNode" },
+  { crate = "spectral-fleet-rs", reason = "Eigenvalue decomposition for fleet energy analysis", import = "scheduling::EigenmodeSchedule" }
+]
+
+[integrates.fleet_warden]
+crate = "fleet-warden-rs"
+module = "fleet_integration"
+description = "Fleet conservation: track energy budget across agents with anomaly-triggered audits and circuit-breaker protection"
+human_steps = [
+  "1. Add fleet-warden disk metrics as anomaly input source",
+  "2. use conservation_law::fleet_integration::FleetConservation",
+  "3. Create FleetConservation::new(energies, z_threshold, max_transfer_fraction)",
+  "4. Call .audit_fleet() to get ConservationReport with anomalous agents",
+  "5. Call .transfer_with_guard(from, to, amount) for safe energy transfers",
+  "6. Check ConservationReport.system_stable before batch operations"
+]
+agent_steps = [
+  "Import fleet_integration module from conservation-law-rs",
+  "Initialize FleetConservation with per-agent energy vector and Z-score threshold",
+  "Wire anomaly detector output into audit_fleet() calls",
+  "Use transfer_with_guard() for all inter-agent energy transfers",
+  "Monitor ConservationReport.anomalous_agents for corrective action",
+  "Respect CircuitState::Open — halt transfers when system is unstable"
+]
+
+[integrates.spectral_fleet]
+crate = "spectral-fleet-rs"
+module = "fleet_integration"
+description = "Use eigenvalue decomposition to identify fleet energy bottlenecks and schedule conservation checks"
+human_steps = [
+  "1. cargo add spectral-fleet",
+  "2. Use spectral_fleet eigenvalues to rank agents by energy bottleneck severity",
+  "3. Feed bottleneck ranking into FleetConservation audit priority"
+]
+agent_steps = [
+  "Compute agent performance matrix eigenvalues via spectral-fleet",
+  "Identify slowest eigenmodes as energy conservation bottlenecks",
+  "Prioritize FleetConservation audits for bottleneck agents"
+]
+
+[integrates.t_minus]
+crate = "t-minus-rs"
+module = "hamiltonian"
+description = "Time-translation symmetry and deadline-aware Hamiltonian evolution"
+human_steps = [
+  "1. cargo add t-minus-rs",
+  "2. Use t-minus deadlines to bound Hamiltonian evolution steps",
+  "3. Apply backpressure when conservation verification is time-limited"
+]
+agent_steps = [
+  "Create DeadlineNode for conservation verification tasks",
+  "Use symplectic integration with deadline-constrained step counts",
+  "Apply backpressure token bucket to rate-limit energy audits"
+]
+
+[onboarding.human]
+quick_start = "cargo add conservation-law"
+example = """
+use conservation_law::lagrangian::{AgentState, MechanicalLagrangian, SymplecticIntegrator};
+use conservation_law::Scalar;
+
+let potential = |q: &[f64; 2]| 0.5 * (q[0].powi(2) + q[1].powi(2));
+let system = MechanicalLagrangian::new(1.0, potential);
+let state = AgentState::new([1.0, 0.0], [0.0, 1.0]);
+let integrator = SymplecticIntegrator::new(&system, 0.01);
+let evolved = integrator.step(&state);
+"""
+
+[onboarding.agent]
+context_needed = ["agent_count", "configuration_space_dim", "total_energy_budget", "symmetry_type"]
+api_surface = [
+  "AgentState::new(q, q_dot)",
+  "MechanicalLagrangian::new(mass, potential_fn)",
+  "SymplecticIntegrator::new(system, dt)",
+  "ConservationDetector::new(tolerance)",
+  "FleetConservation::new(energies, z_threshold, max_transfer_fraction)",
+  "NoetherCharge::compute(lagrangian, symmetry, state)"
+]
+integration_pattern = "Define Lagrangian system, evolve via symplectic integration, detect conserved quantities from trajectories, verify Noether charges. For fleet: initialize FleetConservation with agent energies, audit periodically, guard all transfers."
