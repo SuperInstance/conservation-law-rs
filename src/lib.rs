@@ -6,6 +6,8 @@
 
 pub mod lagrangian;
 pub mod noether;
+pub mod hamiltonian;
+pub mod conserved;
 
 use num_traits::Float;
 
