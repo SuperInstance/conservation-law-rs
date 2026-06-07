@@ -14,3 +14,23 @@ thiserror = "1.0"
 [dev-dependencies]
 proptest = "1.5"
 approx = "0.5"
+spectral-fleet = { path = "../spectral-fleet-rs" }
+rand = "0.8"
+
+[[example]]
+name = "harmonic_oscillator"
+
+[[example]]
+name = "noether_verification"
+
+[[example]]
+name = "conservation_budget"
+
+[[example]]
+name = "fleet_integration"
+
+[[example]]
+name = "thermostat_agent"
+
+[[example]]
+name = "llm_dispatcher"
