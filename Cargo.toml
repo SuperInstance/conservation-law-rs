@@ -1,0 +1,16 @@
+[package]
+name = "conservation-law"
+version = "0.1.0"
+edition = "2021"
+authors = ["SuperInstance <dev@superinstance.ai>"]
+description = "Conservation laws for agent dynamics — Lagrangian mechanics, Noether theorem, and symmetry-based conservation verification"
+license = "MIT OR Apache-2.0"
+repository = "https://github.com/SuperInstance/conservation-law-rs"
+
+[dependencies]
+num-traits = "0.2"
+thiserror = "1.0"
+
+[dev-dependencies]
+proptest = "1.5"
+approx = "0.5"
