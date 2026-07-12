@@ -27,11 +27,7 @@ pub trait Symmetry<S: Scalar, const N: usize> {
     /// For internal symmetries (translation, rotation, ...) `δL = 0` and this
     /// returns zero. For time translation `F = L`, so the full conserved
     /// Noether charge becomes `Σ pᵢ δqᵢ − F = H`, i.e. the energy.
-    fn surface_term(
-        &self,
-        _lagrangian: &dyn Lagrangian<S, N>,
-        _state: &AgentState<S, N>,
-    ) -> S {
+    fn surface_term(&self, _lagrangian: &dyn Lagrangian<S, N>, _state: &AgentState<S, N>) -> S {
         S::zero()
     }
 }
@@ -86,11 +82,7 @@ impl<S: Scalar, const N: usize> Symmetry<S, N> for TimeTranslationSymmetry {
         "time_translation"
     }
 
-    fn surface_term(
-        &self,
-        lagrangian: &dyn Lagrangian<S, N>,
-        state: &AgentState<S, N>,
-    ) -> S {
+    fn surface_term(&self, lagrangian: &dyn Lagrangian<S, N>, state: &AgentState<S, N>) -> S {
         // For time translation δL = ε dL/dt, so F = L and the conserved
         // Noether charge is Q = Σ pᵢ δqᵢ − L = H = T + V.
         lagrangian.lagrangian(state)
@@ -211,7 +203,10 @@ impl<S: Scalar> ChargeMonitor<S> {
             return S::zero();
         }
         let q0 = self.values[0];
-        self.values.iter().map(|&v| (v - q0).abs()).fold(S::zero(), S::max)
+        self.values
+            .iter()
+            .map(|&v| (v - q0).abs())
+            .fold(S::zero(), S::max)
     }
 }
 
@@ -258,7 +253,7 @@ pub fn verify_noether<S: Scalar, const N: usize, L: Lagrangian<S, N>>(
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::lagrangian::{MechanicalLagrangian, SymplecticIntegrator, total_energy};
+    use crate::lagrangian::{total_energy, MechanicalLagrangian, SymplecticIntegrator};
     use approx::assert_relative_eq;
 
     #[test]
@@ -272,7 +267,10 @@ mod tests {
         let sym = TranslationSymmetry::<2> { axis: 0 };
 
         let inv = test_invariance(&lagrangian, &sym, &state, 1e-3, 1e-10);
-        assert!(inv.invariant, "free particle should be translation invariant");
+        assert!(
+            inv.invariant,
+            "free particle should be translation invariant"
+        );
     }
 
     #[test]
@@ -303,7 +301,10 @@ mod tests {
         let sym = RotationSymmetry { i: 0, j: 1 };
 
         let inv = test_invariance(&lagrangian, &sym, &state, 1e-4, 1e-10);
-        assert!(inv.invariant, "central potential should be rotation invariant");
+        assert!(
+            inv.invariant,
+            "central potential should be rotation invariant"
+        );
     }
 
     #[test]
@@ -405,15 +406,8 @@ mod tests {
 
         let e0 = total_energy(&lagrangian, &initial);
         let sym = TimeTranslationSymmetry;
-        let monitor = verify_noether(
-            &lagrangian,
-            &sym,
-            &traj,
-            m,
-            1e-4,
-            1e-4,
-        )
-        .expect("energy should be conserved under time translation");
+        let monitor = verify_noether(&lagrangian, &sym, &traj, m, 1e-4, 1e-4)
+            .expect("energy should be conserved under time translation");
 
         assert!(
             monitor.is_conserved(),

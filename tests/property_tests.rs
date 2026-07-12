@@ -4,8 +4,7 @@ use conservation_law::lagrangian::{
     total_energy, AgentState, MechanicalLagrangian, SymplecticIntegrator,
 };
 use conservation_law::noether::{
-    noether_charge, test_invariance, verify_noether, RotationSymmetry,
-    TranslationSymmetry,
+    noether_charge, test_invariance, verify_noether, RotationSymmetry, TranslationSymmetry,
 };
 use proptest::prelude::*;
 

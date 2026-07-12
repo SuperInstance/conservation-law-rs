@@ -12,9 +12,9 @@
 //! ```
 
 use conservation_law::lagrangian::{
-    AgentState, MechanicalLagrangian, SymplecticIntegrator, total_energy,
+    total_energy, AgentState, MechanicalLagrangian, SymplecticIntegrator,
 };
-use conservation_law::noether::{ChargeMonitor, TimeTranslationSymmetry, test_invariance};
+use conservation_law::noether::{test_invariance, ChargeMonitor, TimeTranslationSymmetry};
 
 fn main() {
     let target_temp = 22.0_f64; // °C
@@ -23,8 +23,8 @@ fn main() {
 
     // Thermal mass (inertia) and coupling constants
     let m = 10.0; // thermal mass
-    let k = 0.5;  // restoring force toward target
-    let c = 0.3;  // damping (heat loss to outside)
+    let k = 0.5; // restoring force toward target
+    let c = 0.3; // damping (heat loss to outside)
 
     println!("=== Thermostat Agent ===");
     println!("Target temperature: {}°C", target_temp);
@@ -76,8 +76,10 @@ fn main() {
         temp_monitor.push(temp);
 
         if step % 20 == 0 {
-            println!("{:4.0} | {:9.2} | {:5.2} | {:6.2} | {:7.2} | {:e}",
-                t, temp, state.q_dot[0], heater, e, drift);
+            println!(
+                "{:4.0} | {:9.2} | {:5.2} | {:6.2} | {:7.2} | {:e}",
+                t, temp, state.q_dot[0], heater, e, drift
+            );
         }
 
         // Symplectic step
@@ -94,7 +96,10 @@ fn main() {
     // -----------------------------------------------------------------
     println!("\n--- Thermostat Analysis ---");
     let final_temp = trajectory.last().unwrap().q[0];
-    println!("Final temperature: {:.2}°C (target: {}°C)", final_temp, target_temp);
+    println!(
+        "Final temperature: {:.2}°C (target: {}°C)",
+        final_temp, target_temp
+    );
     println!("Total heater energy used: {:.2} units", total_heater);
 
     // Check energy conservation WITHOUT heater (autonomous system)
@@ -112,12 +117,18 @@ fn main() {
     for s in &passive_traj {
         e_monitor.push(total_energy(&lagrangian, s));
     }
-    println!("Passive system energy conserved: {} (max drift = {:e})",
-        e_monitor.is_conserved(), e_monitor.max_drift());
+    println!(
+        "Passive system energy conserved: {} (max drift = {:e})",
+        e_monitor.is_conserved(),
+        e_monitor.max_drift()
+    );
 
     // Time-translation invariance of the autonomous system
     let time_sym = TimeTranslationSymmetry;
     let inv = test_invariance(&lagrangian, &time_sym, &passive_traj[0], 1e-3, 1e-6);
-    println!("Time-translation invariance: {} (ΔL = {:e})", inv.invariant, inv.delta_lagrangian);
+    println!(
+        "Time-translation invariance: {} (ΔL = {:e})",
+        inv.invariant, inv.delta_lagrangian
+    );
     println!("This symmetry implies energy conservation in the passive system.");
 }

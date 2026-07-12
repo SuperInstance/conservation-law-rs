@@ -6,11 +6,11 @@
 //! ```
 
 use conservation_law::lagrangian::{
-    AgentState, MechanicalLagrangian, SymplecticIntegrator, total_energy,
+    total_energy, AgentState, MechanicalLagrangian, SymplecticIntegrator,
 };
 use conservation_law::noether::{
-    ChargeMonitor, RotationSymmetry, TimeTranslationSymmetry, TranslationSymmetry,
-    test_invariance, verify_noether,
+    test_invariance, verify_noether, ChargeMonitor, RotationSymmetry, TimeTranslationSymmetry,
+    TranslationSymmetry,
 };
 
 fn main() {
@@ -29,7 +29,10 @@ fn main() {
 
     let trans_x = TranslationSymmetry::<3> { axis: 0 };
     let inv = test_invariance(&lagrangian_free, &trans_x, &state_free, 1e-3, 1e-10);
-    println!("   Invariant: {} (ΔL = {:e})", inv.invariant, inv.delta_lagrangian);
+    println!(
+        "   Invariant: {} (ΔL = {:e})",
+        inv.invariant, inv.delta_lagrangian
+    );
 
     // Generate trajectory and verify charge conservation
     let dt = 0.01;
@@ -77,7 +80,10 @@ fn main() {
 
     let rot = RotationSymmetry { i: 0, j: 1 };
     let inv_rot = test_invariance(&lagrangian_central, &rot, &state_central, 1e-4, 1e-10);
-    println!("   Invariant: {} (ΔL = {:e})", inv_rot.invariant, inv_rot.delta_lagrangian);
+    println!(
+        "   Invariant: {} (ΔL = {:e})",
+        inv_rot.invariant, inv_rot.delta_lagrangian
+    );
 
     let dt = 0.001;
     let integrator = SymplecticIntegrator::new(dt).unwrap();
@@ -102,7 +108,10 @@ fn main() {
 
     let time_sym = TimeTranslationSymmetry;
     let inv_time = test_invariance(&lagrangian_harm, &time_sym, &state_harm, 1e-4, 1e-10);
-    println!("   Invariant: {} (ΔL = {:e})", inv_time.invariant, inv_time.delta_lagrangian);
+    println!(
+        "   Invariant: {} (ΔL = {:e})",
+        inv_time.invariant, inv_time.delta_lagrangian
+    );
 
     // Energy is the Noether charge for time translation
     let mut e_monitor = ChargeMonitor::new(1e-5);
@@ -110,7 +119,11 @@ fn main() {
         e_monitor.push(total_energy(&lagrangian_harm, state));
     }
     println!("   Energy E = {:.6}", e_monitor.values[0]);
-    println!("   Conserved: {} (max drift = {:e})", e_monitor.is_conserved(), e_monitor.max_drift());
+    println!(
+        "   Conserved: {} (max drift = {:e})",
+        e_monitor.is_conserved(),
+        e_monitor.max_drift()
+    );
 
     // -----------------------------------------------------------------
     // Summary table

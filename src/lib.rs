@@ -4,11 +4,11 @@
 //! mechanics, verifying Noether's theorem for symmetry-derived conservation
 //! laws, and checking conservation of quantities like energy and momentum.
 
-pub mod lagrangian;
-pub mod noether;
-pub mod hamiltonian;
 pub mod conserved;
 pub mod fleet_integration;
+pub mod hamiltonian;
+pub mod lagrangian;
+pub mod noether;
 
 use num_traits::Float;
 

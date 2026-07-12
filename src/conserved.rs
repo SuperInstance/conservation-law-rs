@@ -5,7 +5,9 @@
 //! - Verify conservation along the trajectory.
 //! - Test for energy, momentum, and angular momentum conservation.
 
-use crate::lagrangian::{AgentState, Lagrangian, MechanicalLagrangian, SymplecticIntegrator, total_energy};
+use crate::lagrangian::{
+    total_energy, AgentState, Lagrangian, MechanicalLagrangian, SymplecticIntegrator,
+};
 
 use crate::Scalar;
 
@@ -51,7 +53,9 @@ impl<S: Scalar, const N: usize> ConservationDetector<S, N> {
         lagrangian: &L,
         trajectory: &[AgentState<S, N>],
     ) {
-        if trajectory.is_empty() { return; }
+        if trajectory.is_empty() {
+            return;
+        }
         let e0 = total_energy(lagrangian, &trajectory[0]);
         let mut max_drift = S::zero();
         for state in &trajectory[1..] {
@@ -70,13 +74,10 @@ impl<S: Scalar, const N: usize> ConservationDetector<S, N> {
     }
 
     /// Check linear momentum along axis `axis` for a given mass.
-    pub fn check_linear_momentum(
-        &mut self,
-        mass: S,
-        trajectory: &[AgentState<S, N>],
-        axis: usize,
-    ) {
-        if trajectory.is_empty() { return; }
+    pub fn check_linear_momentum(&mut self, mass: S, trajectory: &[AgentState<S, N>], axis: usize) {
+        if trajectory.is_empty() {
+            return;
+        }
         let p0 = mass * trajectory[0].q_dot[axis];
         let mut max_drift = S::zero();
         for state in &trajectory[1..] {
@@ -102,13 +103,15 @@ impl<S: Scalar, const N: usize> ConservationDetector<S, N> {
         i: usize,
         j: usize,
     ) {
-        if trajectory.is_empty() { return; }
-        let l0 = mass * (trajectory[0].q[i] * trajectory[0].q_dot[j]
-            - trajectory[0].q[j] * trajectory[0].q_dot[i]);
+        if trajectory.is_empty() {
+            return;
+        }
+        let l0 = mass
+            * (trajectory[0].q[i] * trajectory[0].q_dot[j]
+                - trajectory[0].q[j] * trajectory[0].q_dot[i]);
         let mut max_drift = S::zero();
         for state in &trajectory[1..] {
-            let l = mass * (state.q[i] * state.q_dot[j]
-                - state.q[j] * state.q_dot[i]);
+            let l = mass * (state.q[i] * state.q_dot[j] - state.q[j] * state.q_dot[i]);
             let drift = (l - l0).abs();
             if drift > max_drift {
                 max_drift = drift;
@@ -129,7 +132,9 @@ impl<S: Scalar, const N: usize> ConservationDetector<S, N> {
         quantity_fn: F,
         trajectory: &[AgentState<S, N>],
     ) {
-        if trajectory.is_empty() { return; }
+        if trajectory.is_empty() {
+            return;
+        }
         let q0 = quantity_fn(&trajectory[0]);
         let mut max_drift = S::zero();
         for state in &trajectory[1..] {
@@ -180,7 +185,9 @@ where
     };
 
     let integrator = SymplecticIntegrator::new(dt).unwrap();
-    let traj = integrator.integrate(mass, &potential, initial_state, steps).unwrap();
+    let traj = integrator
+        .integrate(mass, &potential, initial_state, steps)
+        .unwrap();
 
     let mut detector = ConservationDetector::new(tolerance);
 
@@ -213,11 +220,13 @@ pub fn energy_spread<S: Scalar, const N: usize, L: Lagrangian<S, N>>(
         return S::zero();
     }
     let n = S::from(trajectory.len()).unwrap_or_else(S::one);
-    let mean: S = trajectory.iter()
+    let mean: S = trajectory
+        .iter()
         .map(|s| total_energy(lagrangian, s))
         .fold(S::zero(), |a, b| a + b)
         / n;
-    let variance: S = trajectory.iter()
+    let variance: S = trajectory
+        .iter()
         .map(|s| {
             let e = total_energy(lagrangian, s);
             let d = e - mean;
@@ -232,17 +241,21 @@ pub fn energy_spread<S: Scalar, const N: usize, L: Lagrangian<S, N>>(
 mod tests {
     use super::*;
     use crate::lagrangian::MechanicalLagrangian;
-    
 
     #[test]
     fn test_energy_conservation_harmonic() {
         let mass = 1.0_f64;
         let potential = |q: &[f64; 1]| 0.5 * q[0] * q[0];
-        let lagrangian = MechanicalLagrangian { mass, potential_fn: potential };
+        let lagrangian = MechanicalLagrangian {
+            mass,
+            potential_fn: potential,
+        };
         let dt = 0.001;
         let integrator = SymplecticIntegrator::new(dt).unwrap();
         let initial = AgentState::new([1.0], [0.0]);
-        let traj = integrator.integrate(mass, &potential, &initial, 5000).unwrap();
+        let traj = integrator
+            .integrate(mass, &potential, &initial, 5000)
+            .unwrap();
 
         let mut detector = ConservationDetector::new(1e-4);
         detector.check_energy(&lagrangian, &traj);
@@ -256,7 +269,9 @@ mod tests {
         let dt = 0.01;
         let integrator = SymplecticIntegrator::new(dt).unwrap();
         let initial = AgentState::new([0.0, 0.0], [1.0, 2.0]);
-        let traj = integrator.integrate(mass, &potential, &initial, 100).unwrap();
+        let traj = integrator
+            .integrate(mass, &potential, &initial, 100)
+            .unwrap();
 
         let mut detector = ConservationDetector::new(1e-10);
         detector.check_linear_momentum(mass, &traj, 0);
@@ -274,11 +289,16 @@ mod tests {
         let dt = 0.001;
         let integrator = SymplecticIntegrator::new(dt).unwrap();
         let initial = AgentState::new([1.0, 0.0], [0.0, 1.0]);
-        let traj = integrator.integrate(mass, &potential, &initial, 5000).unwrap();
+        let traj = integrator
+            .integrate(mass, &potential, &initial, 5000)
+            .unwrap();
 
         let mut detector = ConservationDetector::new(1e-4);
         detector.check_angular_momentum(mass, &traj, 0, 1);
-        assert!(detector.quantities[0].is_conserved, "angular momentum should be conserved for central potential");
+        assert!(
+            detector.quantities[0].is_conserved,
+            "angular momentum should be conserved for central potential"
+        );
     }
 
     #[test]
@@ -288,11 +308,16 @@ mod tests {
         let dt = 0.01;
         let integrator = SymplecticIntegrator::new(dt).unwrap();
         let initial = AgentState::new([1.0], [0.0]);
-        let traj = integrator.integrate(mass, &potential, &initial, 100).unwrap();
+        let traj = integrator
+            .integrate(mass, &potential, &initial, 100)
+            .unwrap();
 
         let mut detector = ConservationDetector::new(1e-10);
         detector.check_linear_momentum(mass, &traj, 0);
-        assert!(!detector.quantities[0].is_conserved, "momentum should NOT be conserved for harmonic potential");
+        assert!(
+            !detector.quantities[0].is_conserved,
+            "momentum should NOT be conserved for harmonic potential"
+        );
     }
 
     #[test]
@@ -301,7 +326,14 @@ mod tests {
         let potential = |q: &[f64; 1]| 0.5 * q[0] * q[0];
         let initial = AgentState::new([1.0], [0.0]);
         let detector = verify_all_conservation(mass, potential, &initial, 0.001, 5000, 1e-4);
-        assert!(detector.quantities.iter().find(|q| q.name == "energy").unwrap().is_conserved);
+        assert!(
+            detector
+                .quantities
+                .iter()
+                .find(|q| q.name == "energy")
+                .unwrap()
+                .is_conserved
+        );
     }
 
     #[test]
@@ -310,21 +342,32 @@ mod tests {
         let potential = |_: &[f64; 3]| 0.0_f64;
         let initial = AgentState::new([0.0, 0.0, 0.0], [1.0, 2.0, 3.0]);
         let detector = verify_all_conservation(mass, potential, &initial, 0.01, 100, 1e-8);
-        assert!(detector.all_conserved(), "all quantities should be conserved for free particle");
+        assert!(
+            detector.all_conserved(),
+            "all quantities should be conserved for free particle"
+        );
     }
 
     #[test]
     fn test_energy_spread_small() {
         let mass = 1.0_f64;
         let potential = |q: &[f64; 1]| 0.5 * q[0] * q[0];
-        let lagrangian = MechanicalLagrangian { mass, potential_fn: potential };
+        let lagrangian = MechanicalLagrangian {
+            mass,
+            potential_fn: potential,
+        };
         let dt = 0.001;
         let integrator = SymplecticIntegrator::new(dt).unwrap();
         let initial = AgentState::new([1.0], [0.0]);
-        let traj = integrator.integrate(mass, &|q: &[f64; 1]| 0.5 * q[0] * q[0], &initial, 5000).unwrap();
+        let traj = integrator
+            .integrate(mass, &|q: &[f64; 1]| 0.5 * q[0] * q[0], &initial, 5000)
+            .unwrap();
 
         let spread = energy_spread(&lagrangian, &traj);
-        assert!(spread < 1e-4, "energy spread should be small for symplectic integrator");
+        assert!(
+            spread < 1e-4,
+            "energy spread should be small for symplectic integrator"
+        );
     }
 
     #[test]
@@ -334,11 +377,20 @@ mod tests {
         let dt = 0.01;
         let integrator = SymplecticIntegrator::new(dt).unwrap();
         let initial = AgentState::new([0.0], [2.0]);
-        let traj = integrator.integrate(mass, &potential, &initial, 100).unwrap();
+        let traj = integrator
+            .integrate(mass, &potential, &initial, 100)
+            .unwrap();
 
         let mut detector = ConservationDetector::new(1e-10);
-        detector.check_quantity("kinetic_energy", |s| 0.5 * mass * s.q_dot[0] * s.q_dot[0], &traj);
-        assert!(detector.quantities[0].is_conserved, "KE should be conserved for free particle");
+        detector.check_quantity(
+            "kinetic_energy",
+            |s| 0.5 * mass * s.q_dot[0] * s.q_dot[0],
+            &traj,
+        );
+        assert!(
+            detector.quantities[0].is_conserved,
+            "KE should be conserved for free particle"
+        );
     }
 
     #[test]
@@ -367,7 +419,10 @@ mod tests {
     fn test_empty_trajectory() {
         let mass = 1.0_f64;
         let potential = |q: &[f64; 1]| q[0];
-        let lagrangian = MechanicalLagrangian { mass, potential_fn: potential };
+        let lagrangian = MechanicalLagrangian {
+            mass,
+            potential_fn: potential,
+        };
         let mut detector = ConservationDetector::new(1e-10);
         detector.check_energy(&lagrangian, &[]);
         assert!(detector.quantities.is_empty());
@@ -377,7 +432,10 @@ mod tests {
     fn test_energy_spread_short_trajectories() {
         let mass = 1.0_f64;
         let potential = |q: &[f64; 1]| 0.5 * q[0] * q[0];
-        let lagrangian = MechanicalLagrangian { mass, potential_fn: potential };
+        let lagrangian = MechanicalLagrangian {
+            mass,
+            potential_fn: potential,
+        };
         let single = vec![AgentState::new([1.0], [0.0])];
         assert_eq!(energy_spread(&lagrangian, &single), 0.0);
         assert_eq!(energy_spread(&lagrangian, &[]), 0.0);

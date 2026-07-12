@@ -105,7 +105,9 @@ impl FleetConservation {
             return 0.0;
         }
         let mu = self.mean();
-        let variance = self.energies.iter()
+        let variance = self
+            .energies
+            .iter()
             .map(|&e| (e - mu) * (e - mu))
             .sum::<f64>()
             / self.energies.len() as f64;
@@ -132,7 +134,8 @@ impl FleetConservation {
     /// breaker trips to [`CircuitState::Open`].
     pub fn audit_fleet(&self) -> ConservationReport {
         let z_scores = self.z_scores();
-        let anomalous: Vec<usize> = z_scores.iter()
+        let anomalous: Vec<usize> = z_scores
+            .iter()
             .enumerate()
             .filter(|(_, &z)| z.abs() > self.z_threshold)
             .map(|(i, _)| i)
@@ -259,15 +262,12 @@ impl FleetConservation {
 
     fn record_success(&mut self) {
         self.consecutive_failures = 0;
-        match self.circuit {
-            CircuitState::HalfOpen => {
-                self.probe_successes += 1;
-                if self.probe_successes >= self.probes_needed {
-                    self.circuit = CircuitState::Closed;
-                    self.probe_successes = 0;
-                }
+        if self.circuit == CircuitState::HalfOpen {
+            self.probe_successes += 1;
+            if self.probe_successes >= self.probes_needed {
+                self.circuit = CircuitState::Closed;
+                self.probe_successes = 0;
             }
-            _ => {}
         }
     }
 }
@@ -341,7 +341,10 @@ mod tests {
         // One agent has wildly different energy
         let fleet = FleetConservation::new(vec![100.0, 100.0, 100.0, 10000.0], 1.5);
         let report = fleet.audit_fleet();
-        assert!(!report.anomalous_agents.is_empty(), "should detect the outlier agent");
+        assert!(
+            !report.anomalous_agents.is_empty(),
+            "should detect the outlier agent"
+        );
         assert_eq!(report.anomalous_agents[0], 3);
     }
 

@@ -6,7 +6,7 @@
 //! ```
 
 use conservation_law::lagrangian::{
-    AgentState, MechanicalLagrangian, SymplecticIntegrator, total_energy,
+    total_energy, AgentState, MechanicalLagrangian, SymplecticIntegrator,
 };
 
 fn main() {
@@ -78,5 +78,8 @@ fn main() {
     println!("Explicit Euler final energy: {:.6}", e_euler);
     println!("Explicit Euler energy drift: {:e}", (e_euler - e0).abs());
     println!("\nThe symplectic integrator drifts by ~{:e},", max_drift);
-    println!("while explicit Euler drifts by ~{:e}.", (e_euler - e0).abs());
+    println!(
+        "while explicit Euler drifts by ~{:e}.",
+        (e_euler - e0).abs()
+    );
 }
