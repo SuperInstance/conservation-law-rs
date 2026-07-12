@@ -1,16 +1,16 @@
 //! Wiring conservation-law → spectral-fleet → fleet-warden.
 //!
-//! This example shows how three crates compose to form a complete
-//! agent-fleet management pipeline:
+//! ⚠️  STUB / EXTERNAL-DEPENDENCY EXAMPLE
+//!
+//! This example is kept as a design sketch. It requires `spectral-fleet`,
+//! which is not published and not available in this workspace, so it is
+//! intentionally excluded from the crate's example manifest and will not
+//! compile out of the box. Treat it as documentation of intended integration
+//! rather than runnable code.
 //!
 //! 1. `conservation-law`  — energy budgets, symplectic dynamics, Noether monitoring
 //! 2. `spectral-fleet`    — eigenvalue decomposition for agent priority ranking
 //! 3. `fleet-warden`      — (conceptual) health/disk monitoring and cleanup
-//!
-//! Run with:
-//! ```bash
-//! cargo run --example fleet_integration
-//! ```
 
 use conservation_law::lagrangian::{
     AgentState, MechanicalLagrangian, SymplecticIntegrator, total_energy,

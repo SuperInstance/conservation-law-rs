@@ -2,6 +2,7 @@
 name = "conservation-law"
 version = "0.1.0"
 edition = "2021"
+autoexamples = false
 authors = ["SuperInstance <dev@superinstance.ai>"]
 description = "Conservation laws for agent dynamics — Lagrangian mechanics, Noether theorem, and symmetry-based conservation verification"
 license = "MIT OR Apache-2.0"
@@ -14,7 +15,6 @@ thiserror = "1.0"
 [dev-dependencies]
 proptest = "1.5"
 approx = "0.5"
-spectral-fleet = { path = "../spectral-fleet-rs" }
 rand = "0.8"
 
 [[example]]
@@ -25,9 +25,6 @@ name = "noether_verification"
 
 [[example]]
 name = "conservation_budget"
-
-[[example]]
-name = "fleet_integration"
 
 [[example]]
 name = "thermostat_agent"
