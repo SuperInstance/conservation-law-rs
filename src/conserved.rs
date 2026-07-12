@@ -372,4 +372,32 @@ mod tests {
         detector.check_energy(&lagrangian, &[]);
         assert!(detector.quantities.is_empty());
     }
+
+    #[test]
+    fn test_energy_spread_short_trajectories() {
+        let mass = 1.0_f64;
+        let potential = |q: &[f64; 1]| 0.5 * q[0] * q[0];
+        let lagrangian = MechanicalLagrangian { mass, potential_fn: potential };
+        let single = vec![AgentState::new([1.0], [0.0])];
+        assert_eq!(energy_spread(&lagrangian, &single), 0.0);
+        assert_eq!(energy_spread(&lagrangian, &[]), 0.0);
+    }
+
+    #[test]
+    fn test_detector_all_conserved_empty() {
+        let detector: ConservationDetector<f64, 1> = ConservationDetector::new(1e-6);
+        assert!(detector.all_conserved());
+        assert_eq!(detector.num_conserved(), 0);
+    }
+
+    #[test]
+    fn test_verify_all_conservation_free_particle_1d() {
+        let mass = 1.0_f64;
+        let potential = |_q: &[f64; 1]| 0.0_f64;
+        let initial = AgentState::new([0.0], [2.0]);
+        let detector = verify_all_conservation(mass, potential, &initial, 0.01, 500, 1e-8);
+        // Energy + 1 momentum = 2 conserved quantities.
+        assert!(detector.all_conserved());
+        assert_eq!(detector.num_conserved(), 2);
+    }
 }

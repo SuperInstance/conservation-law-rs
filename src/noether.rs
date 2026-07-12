@@ -179,6 +179,7 @@ pub fn noether_charge<S: Scalar, const N: usize>(
 }
 
 /// A conserved-quantity monitor that tracks a charge along a trajectory.
+#[derive(Debug, Clone)]
 pub struct ChargeMonitor<S: Scalar> {
     pub values: Vec<S>,
     pub tolerance: S,
@@ -421,5 +422,51 @@ mod tests {
         );
         // The conserved charge must equal the physical energy E = T + V.
         assert_relative_eq!(monitor.values[0], e0, epsilon = 1e-10);
+    }
+
+    #[test]
+    fn verify_noether_rejects_non_invariant_symmetry() {
+        let potential = |q: &[f64; 1]| 0.5 * q[0] * q[0];
+        let lagrangian = MechanicalLagrangian {
+            mass: 1.0,
+            potential_fn: potential,
+        };
+        let initial = AgentState::new([1.0], [0.0]);
+        let traj = vec![initial.clone()];
+        let sym = TranslationSymmetry::<1> { axis: 0 };
+
+        let result = verify_noether(&lagrangian, &sym, &traj, 1.0, 1e-3, 1e-10);
+        assert!(result.is_err());
+        assert!(result.unwrap_err().contains("not invariant"));
+    }
+
+    #[test]
+    fn verify_noether_rejects_non_conserved_charge() {
+        // Use a free-particle Lagrangian (translation invariant) but supply an
+        // invalid trajectory where velocity changes, so the Noether charge
+        // (linear momentum) drifts. This exercises the "charge not conserved"
+        // error path independently of the "Lagrangian not invariant" path.
+        let potential = |_q: &[f64; 1]| 0.0_f64;
+        let lagrangian = MechanicalLagrangian {
+            mass: 1.0,
+            potential_fn: potential,
+        };
+        let traj = vec![
+            AgentState::new([0.0], [1.0]),
+            AgentState::new([0.1], [2.0]),
+            AgentState::new([0.3], [3.0]),
+        ];
+        let sym = TranslationSymmetry::<1> { axis: 0 };
+
+        let result = verify_noether(&lagrangian, &sym, &traj, 1.0, 1e-3, 1e-10);
+        assert!(result.is_err());
+        assert!(result.unwrap_err().contains("not conserved"));
+    }
+
+    #[test]
+    fn charge_monitor_empty_is_vacuously_conserved() {
+        let monitor = ChargeMonitor::<f64>::new(1e-6);
+        assert!(monitor.is_conserved());
+        assert_eq!(monitor.max_drift(), 0.0);
     }
 }

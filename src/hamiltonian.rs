@@ -438,4 +438,43 @@ mod tests {
             assert!((h - h0).abs() < 1e-3);
         }
     }
+
+    #[test]
+    fn test_find_recurrence_edge_cases() {
+        let ham = harmonic_1d();
+        let integrator = HamiltonianIntegrator::new(0.01);
+        let initial = PhaseSpacePoint::new([1.0], [0.0]);
+
+        assert_eq!(find_recurrence::<f64, 1>(&[], 0.1, 1), None);
+        let single = vec![initial.clone()];
+        assert_eq!(find_recurrence(&single, 0.1, 1), None);
+
+        let traj = integrator.integrate(&ham, &initial, 100);
+        // No recurrence before min_step.
+        assert_eq!(find_recurrence(&traj, 0.1, 10_000), None);
+    }
+
+    #[test]
+    fn test_verify_liouville_zero_volume() {
+        let initial = vec![PhaseSpacePoint::new([1.0], [2.0])];
+        let evolved = vec![PhaseSpacePoint::new([1.01], [2.01])];
+        // A single point has zero bounding-box volume, so verification is vacuously true.
+        assert!(verify_liouville(&initial, &evolved, 0.1));
+    }
+
+    #[test]
+    fn test_phase_space_volume_empty() {
+        let empty: Vec<PhaseSpacePoint<f64, 1>> = vec![];
+        assert_eq!(phase_space_volume(&empty), 0.0);
+    }
+
+    #[test]
+    fn test_integrate_zero_steps_returns_initial() {
+        let ham = harmonic_1d();
+        let integrator = HamiltonianIntegrator::new(0.01);
+        let initial = PhaseSpacePoint::new([1.0], [0.0]);
+        let traj = integrator.integrate(&ham, &initial, 0);
+        assert_eq!(traj.len(), 1);
+        assert_eq!(traj[0], initial);
+    }
 }

@@ -86,6 +86,7 @@ impl std::error::Error for DynamicsError {}
 ///
 /// Uses a symplectic Stormer–Verlet (leapfrog) scheme which preserves
 /// energy much better than naive explicit Euler.
+#[derive(Debug, Clone, Copy, PartialEq)]
 pub struct SymplecticIntegrator<S: Scalar, const N: usize> {
     pub dt: S,
 }
@@ -247,5 +248,51 @@ mod tests {
         assert_relative_eq!(final_state.q[0], v0[0] * 1.0, epsilon = 1e-10);
         assert_relative_eq!(final_state.q[1], v0[1] * 1.0, epsilon = 1e-10);
         assert_relative_eq!(final_state.q[2], v0[2] * 1.0, epsilon = 1e-10);
+    }
+
+    #[test]
+    fn rejects_non_positive_step_size() {
+        assert_eq!(
+            SymplecticIntegrator::<f64, 1>::new(0.0).unwrap_err(),
+            DynamicsError::StepSizeTooSmall
+        );
+        assert_eq!(
+            SymplecticIntegrator::<f64, 1>::new(-0.01).unwrap_err(),
+            DynamicsError::StepSizeTooSmall
+        );
+    }
+
+    #[test]
+    fn rejects_non_positive_or_non_finite_mass() {
+        let integrator = SymplecticIntegrator::new(0.01).unwrap();
+        let potential = |q: &[f64; 1]| 0.5 * q[0] * q[0];
+        let state = AgentState::new([1.0], [0.0]);
+
+        assert_eq!(
+            integrator.step(0.0, &potential, &state).unwrap_err(),
+            DynamicsError::IntegrationDiverged
+        );
+        assert_eq!(
+            integrator.step(-1.0, &potential, &state).unwrap_err(),
+            DynamicsError::IntegrationDiverged
+        );
+        assert_eq!(
+            integrator.step(f64::NAN, &potential, &state).unwrap_err(),
+            DynamicsError::IntegrationDiverged
+        );
+        assert_eq!(
+            integrator.step(f64::INFINITY, &potential, &state).unwrap_err(),
+            DynamicsError::IntegrationDiverged
+        );
+    }
+
+    #[test]
+    fn integrate_zero_steps_returns_initial_state() {
+        let integrator = SymplecticIntegrator::new(0.01).unwrap();
+        let potential = |q: &[f64; 1]| 0.5 * q[0] * q[0];
+        let initial = AgentState::new([1.0], [0.0]);
+        let traj = integrator.integrate(1.0, &potential, &initial, 0).unwrap();
+        assert_eq!(traj.len(), 1);
+        assert_eq!(traj[0], initial);
     }
 }
