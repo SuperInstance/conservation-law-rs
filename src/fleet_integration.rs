@@ -105,7 +105,9 @@ impl FleetConservation {
             return 0.0;
         }
         let mu = self.mean();
-        let variance = self.energies.iter()
+        let variance = self
+            .energies
+            .iter()
             .map(|&e| (e - mu) * (e - mu))
             .sum::<f64>()
             / self.energies.len() as f64;
@@ -132,7 +134,8 @@ impl FleetConservation {
     /// breaker trips to [`CircuitState::Open`].
     pub fn audit_fleet(&self) -> ConservationReport {
         let z_scores = self.z_scores();
-        let anomalous: Vec<usize> = z_scores.iter()
+        let anomalous: Vec<usize> = z_scores
+            .iter()
             .enumerate()
             .filter(|(_, &z)| z.abs() > self.z_threshold)
             .map(|(i, _)| i)
@@ -259,15 +262,12 @@ impl FleetConservation {
 
     fn record_success(&mut self) {
         self.consecutive_failures = 0;
-        match self.circuit {
-            CircuitState::HalfOpen => {
-                self.probe_successes += 1;
-                if self.probe_successes >= self.probes_needed {
-                    self.circuit = CircuitState::Closed;
-                    self.probe_successes = 0;
-                }
+        if self.circuit == CircuitState::HalfOpen {
+            self.probe_successes += 1;
+            if self.probe_successes >= self.probes_needed {
+                self.circuit = CircuitState::Closed;
+                self.probe_successes = 0;
             }
-            _ => {}
         }
     }
 }
@@ -341,7 +341,10 @@ mod tests {
         // One agent has wildly different energy
         let fleet = FleetConservation::new(vec![100.0, 100.0, 100.0, 10000.0], 1.5);
         let report = fleet.audit_fleet();
-        assert!(!report.anomalous_agents.is_empty(), "should detect the outlier agent");
+        assert!(
+            !report.anomalous_agents.is_empty(),
+            "should detect the outlier agent"
+        );
         assert_eq!(report.anomalous_agents[0], 3);
     }
 
@@ -403,5 +406,61 @@ mod tests {
         // Population std dev of [10,20,30] = sqrt((100+0+100)/3) = sqrt(200/3)
         let expected = (200.0_f64 / 3.0).sqrt();
         assert!((fleet.std_dev() - expected).abs() < 1e-10);
+    }
+
+    #[test]
+    fn test_empty_fleet_statistics() {
+        let fleet = FleetConservation::new(vec![], 2.0);
+        assert_eq!(fleet.total_energy(), 0.0);
+        assert_eq!(fleet.mean(), 0.0);
+        assert_eq!(fleet.std_dev(), 0.0);
+        assert!(fleet.z_scores().is_empty());
+        let report = fleet.audit_fleet();
+        assert!(report.anomalous_agents.is_empty());
+        assert!(report.system_stable);
+    }
+
+    #[test]
+    fn test_transfer_rejects_negative_or_zero_amount() {
+        let mut fleet = make_balanced_fleet();
+        assert!(fleet.transfer_with_guard(0, 1, 0.0).is_err());
+        assert!(fleet.transfer_with_guard(0, 1, -5.0).is_err());
+        // Balances must remain unchanged.
+        assert_eq!(fleet.energies, vec![100.0, 100.0, 100.0, 100.0]);
+    }
+
+    #[test]
+    fn test_transfer_rejects_exceeding_max_fraction() {
+        let mut fleet = FleetConservation::new(vec![100.0, 100.0], 2.0);
+        // max_transfer_fraction defaults to 0.25 (total=200), so anything above 50 is rejected.
+        let result = fleet.transfer_with_guard(0, 1, 60.0);
+        assert!(result.is_err());
+        assert!(result.unwrap_err().contains("exceeds max fraction"));
+        assert_eq!(fleet.energies[0], 100.0);
+        // A single operational failure should not trip the breaker.
+        assert_ne!(fleet.circuit_state(), CircuitState::Open);
+    }
+
+    #[test]
+    fn test_half_open_probe_failure_reopens_circuit() {
+        let mut fleet = FleetConservation::new(vec![100.0, 100.0], 2.0);
+        fleet.trip();
+        assert!(fleet.try_half_open());
+        // Probe that fails because it exceeds the max fraction.
+        let result = fleet.transfer_with_guard(0, 1, 10_000.0);
+        assert!(result.is_err());
+        // failure_threshold defaults to 3, but the Open-state path also increments
+        // consecutive_failures. With one failed probe we remain Open (or re-trip).
+        assert_eq!(fleet.circuit_state(), CircuitState::Open);
+    }
+
+    #[test]
+    fn test_circuit_open_counts_failures() {
+        let mut fleet = FleetConservation::new(vec![100.0, 100.0], 2.0);
+        fleet.trip();
+        let _ = fleet.transfer_with_guard(0, 1, 1.0);
+        let _ = fleet.transfer_with_guard(0, 1, 1.0);
+        // Circuit remains Open and failures are counted.
+        assert_eq!(fleet.circuit_state(), CircuitState::Open);
     }
 }

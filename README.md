@@ -24,6 +24,23 @@ conservation-law = "0.1"
 cargo add conservation-law
 ```
 
+### Runnable examples
+
+The repository ships the following runnable examples:
+
+- `cargo run --example harmonic_oscillator` — symplectic integration of a 1-D
+  harmonic oscillator with explicit energy-drift assertion.
+- `cargo run --example noether_verification` — translation, rotation, and
+  time-translation symmetry checks.
+- `cargo run --example conservation_budget` — token-budget analogy across a
+  fleet of agents.
+- `cargo run --example thermostat_agent` — damped driven oscillator control.
+- `cargo run --example llm_dispatcher` — budget-aware request dispatching.
+
+`examples/fleet_integration.rs` is intentionally **not runnable** out of the
+box: it depends on the unpublished `spectral-fleet` crate and is excluded from
+the example manifest. It is kept as a design sketch.
+
 ---
 
 ## 1. The Core Idea — Show, Don't Tell
@@ -31,7 +48,7 @@ cargo add conservation-law
 An agent has 100 units of energy. Some is kinetic (productive motion), some is potential (stored in the environment). The split changes over time. The total does not.
 
 ```rust
-// examples/01_core_idea.rs
+// examples/harmonic_oscillator.rs
 use conservation_law::lagrangian::{
     AgentState, MechanicalLagrangian, SymplecticIntegrator,
     Lagrangian, total_energy,
@@ -104,7 +121,7 @@ The drift is at the floating-point noise level — 10⁻⁹ after 200 steps. A n
 ### The Wrong Way: Unchecked Agent Budgets
 
 ```rust
-// examples/02a_without_conservation.rs
+// illustrative snippet — not a runnable example file
 //
 // This is NOT using conservation-law. This is what breaks.
 
@@ -159,7 +176,7 @@ Where did 378.7 units go? Nobody knows. This is why systems die.
 ### The Right Way: Conservation-Enforced Fleet
 
 ```rust
-// examples/02b_with_conservation.rs
+// illustrative snippet — not a runnable example file
 use conservation_law::fleet_integration::FleetConservation;
 
 fn main() {
@@ -227,7 +244,7 @@ The `transfer_with_guard` method enforces three invariants:
 ## 3. Budget Transfer — The Invariant Holds Before, During, and After
 
 ```rust
-// examples/03_budget_transfer.rs
+// illustrative snippet — not a runnable example file
 use conservation_law::fleet_integration::FleetConservation;
 
 fn main() {
@@ -308,7 +325,7 @@ The `transfer_with_guard` returns `Result<f64, String>`. On failure, no state is
 ## 4. Fleet Audit — Detect Anomalies
 
 ```rust
-// examples/04_fleet_audit.rs
+// illustrative snippet — not a runnable example file
 use conservation_law::fleet_integration::FleetConservation;
 
 fn main() {
@@ -381,7 +398,7 @@ This is the deepest result in the crate. Emmy Noether proved in 1918 that **ever
 The crate implements this theorem directly.
 
 ```rust
-// examples/05_noether.rs
+// examples/noether_verification.rs
 use conservation_law::lagrangian::{
     AgentState, MechanicalLagrangian, SymplecticIntegrator,
 };
@@ -493,7 +510,7 @@ The API types at work:
 ## 6. The Physics Connection — Energy Conservation in Mechanics = Budget Conservation in Agents
 
 ```rust
-// examples/06_physics_connection.rs
+// illustrative snippet — not a runnable example file
 use conservation_law::lagrangian::{
     AgentState, MechanicalLagrangian, SymplecticIntegrator, total_energy,
 };
@@ -604,7 +621,13 @@ The Hamiltonian side provides:
 ### 7a. With spectral-fleet — Rank Agents by Energy Efficiency
 
 ```rust
-// examples/07a_spectral_fleet.rs
+// examples/fleet_integration.rs
+//
+// ⚠️  STUB / EXTERNAL-DEPENDENCY EXAMPLE
+//
+// This file requires `spectral-fleet`, which is not published and not
+// available in this workspace. It is excluded from the example manifest and
+// will not compile out of the box. It is kept as a design sketch only.
 //
 // cargo add conservation-law spectral-fleet
 //
@@ -650,7 +673,7 @@ fn main() {
 ### 7b. With fleet-warden — Audit Cleanup for Conservation
 
 ```rust
-// examples/07b_fleet_warden.rs
+// illustrative snippet — fleet-warden integration is not a runnable example
 //
 // cargo add conservation-law fleet-warden
 //
@@ -712,7 +735,7 @@ fn main() {
 ### 7c. With agent-homeostasis — Maintain Budget Setpoint
 
 ```rust
-// examples/07c_agent_homeostasis.rs
+// illustrative snippet — agent-homeostasis integration is not a runnable example
 //
 // cargo add conservation-law agent-homeostasis
 //

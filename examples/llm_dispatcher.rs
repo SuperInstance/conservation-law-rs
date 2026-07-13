@@ -11,10 +11,8 @@
 //! cargo run --example llm_dispatcher
 //! ```
 
-use conservation_law::lagrangian::{
-    AgentState, MechanicalLagrangian, total_energy,
-};
-use conservation_law::noether::{ChargeMonitor, Symmetry, TranslationSymmetry, noether_charge};
+use conservation_law::lagrangian::{total_energy, AgentState, MechanicalLagrangian};
+use conservation_law::noether::{noether_charge, ChargeMonitor, Symmetry, TranslationSymmetry};
 
 /// An LLM agent with a token budget.
 struct LlmAgent {
@@ -40,21 +38,64 @@ fn main() {
 
     // Five agents with different priorities
     let mut agents = vec![
-        LlmAgent { name: "Planner",    state: AgentState::new([200.0], [0.0]), mass: 1.0, priority: 1.0 },
-        LlmAgent { name: "Coder",      state: AgentState::new([200.0], [0.0]), mass: 1.0, priority: 1.2 },
-        LlmAgent { name: "Reviewer",   state: AgentState::new([200.0], [0.0]), mass: 1.0, priority: 0.8 },
-        LlmAgent { name: "Tester",     state: AgentState::new([200.0], [0.0]), mass: 1.0, priority: 0.9 },
-        LlmAgent { name: "Deployer",   state: AgentState::new([200.0], [0.0]), mass: 1.0, priority: 0.7 },
+        LlmAgent {
+            name: "Planner",
+            state: AgentState::new([200.0], [0.0]),
+            mass: 1.0,
+            priority: 1.0,
+        },
+        LlmAgent {
+            name: "Coder",
+            state: AgentState::new([200.0], [0.0]),
+            mass: 1.0,
+            priority: 1.2,
+        },
+        LlmAgent {
+            name: "Reviewer",
+            state: AgentState::new([200.0], [0.0]),
+            mass: 1.0,
+            priority: 0.8,
+        },
+        LlmAgent {
+            name: "Tester",
+            state: AgentState::new([200.0], [0.0]),
+            mass: 1.0,
+            priority: 0.9,
+        },
+        LlmAgent {
+            name: "Deployer",
+            state: AgentState::new([200.0], [0.0]),
+            mass: 1.0,
+            priority: 0.7,
+        },
     ];
 
     // Queue of incoming requests
     let requests = vec![
-        Request { agent_name: "Planner",    tokens_needed: 150.0 },
-        Request { agent_name: "Coder",      tokens_needed: 300.0 },
-        Request { agent_name: "Reviewer",   tokens_needed: 100.0 },
-        Request { agent_name: "Tester",     tokens_needed: 200.0 },
-        Request { agent_name: "Deployer",   tokens_needed:  80.0 },
-        Request { agent_name: "Coder",      tokens_needed: 250.0 }, // overspend attempt
+        Request {
+            agent_name: "Planner",
+            tokens_needed: 150.0,
+        },
+        Request {
+            agent_name: "Coder",
+            tokens_needed: 300.0,
+        },
+        Request {
+            agent_name: "Reviewer",
+            tokens_needed: 100.0,
+        },
+        Request {
+            agent_name: "Tester",
+            tokens_needed: 200.0,
+        },
+        Request {
+            agent_name: "Deployer",
+            tokens_needed: 80.0,
+        },
+        Request {
+            agent_name: "Coder",
+            tokens_needed: 250.0,
+        }, // overspend attempt
     ];
 
     // Budget potential: agents with low remaining tokens have high "potential"
@@ -73,8 +114,10 @@ fn main() {
 
     println!("Initial state:");
     for agent in &agents {
-        println!("  {:10} | {:6.0} tokens | priority = {:.1}",
-            agent.name, agent.state.q[0], agent.priority);
+        println!(
+            "  {:10} | {:6.0} tokens | priority = {:.1}",
+            agent.name, agent.state.q[0], agent.priority
+        );
     }
     println!();
 
@@ -83,7 +126,10 @@ fn main() {
     println!("-----------------|--------|----------------------|-------");
 
     for req in &requests {
-        let agent_idx = agents.iter().position(|a| a.name == req.agent_name).unwrap();
+        let agent_idx = agents
+            .iter()
+            .position(|a| a.name == req.agent_name)
+            .unwrap();
         let agent = &mut agents[agent_idx];
 
         let status;
@@ -101,7 +147,8 @@ fn main() {
             total_dispatched += req.tokens_needed;
 
             // Redistribute from healthier agents proportionally
-            let others_budget: f64 = agents.iter()
+            let others_budget: f64 = agents
+                .iter()
                 .enumerate()
                 .filter(|(i, _)| *i != agent_idx)
                 .map(|(_, a)| a.state.q[0])
@@ -118,7 +165,10 @@ fn main() {
             status = format!("overspend {:.0} (rebalanced)", shortfall);
         } else {
             // Large overspend: reject
-            status = format!("REJECTED (need {:.0}, have {:.0})", req.tokens_needed, agent.state.q[0]);
+            status = format!(
+                "REJECTED (need {:.0}, have {:.0})",
+                req.tokens_needed, agent.state.q[0]
+            );
         }
 
         // Enforce non-negative budgets
@@ -127,8 +177,10 @@ fn main() {
         }
 
         let after = agents[agent_idx].state.q[0];
-        println!("{:16} | {:6.0} | {:20} | {:5.0}",
-            req.agent_name, req.tokens_needed, status, after);
+        println!(
+            "{:16} | {:6.0} | {:20} | {:5.0}",
+            req.agent_name, req.tokens_needed, status, after
+        );
 
         // Track budget invariant: dispatched + remaining = constant
         let total_remaining: f64 = agents.iter().map(|a| a.state.q[0]).sum();
@@ -141,17 +193,27 @@ fn main() {
     println!();
     println!("--- Final state ---");
     for agent in &agents {
-        println!("  {:10} | {:6.0} tokens remaining", agent.name, agent.state.q[0]);
+        println!(
+            "  {:10} | {:6.0} tokens remaining",
+            agent.name, agent.state.q[0]
+        );
     }
 
     let total_remaining: f64 = agents.iter().map(|a| a.state.q[0]).sum();
     println!("\nTotal dispatched:  {:.0} tokens", total_dispatched);
     println!("Total remaining:   {:.0} tokens", total_remaining);
-    println!("Sum:               {:.0} tokens (budget = {})", total_dispatched + total_remaining, FLEET_BUDGET);
+    println!(
+        "Sum:               {:.0} tokens (budget = {})",
+        total_dispatched + total_remaining,
+        FLEET_BUDGET
+    );
 
     // Budget conservation check
-    println!("\nBudget conservation: {} (max drift = {:e})",
-        budget_monitor.is_conserved(), budget_monitor.max_drift());
+    println!(
+        "\nBudget conservation: {} (max drift = {:e})",
+        budget_monitor.is_conserved(),
+        budget_monitor.max_drift()
+    );
 
     // -----------------------------------------------------------------
     // Noether charge: "token momentum" — the rate of budget transfer
@@ -172,8 +234,15 @@ fn main() {
     println!("\n--- Energy (budget tension) per agent ---");
     for agent in &agents {
         let e = total_energy(&lagrangian, &agent.state);
-        println!("  {:10} | energy = {:8.2} | tension = {}",
-            agent.name, e,
-            if e > 500.0 { "HIGH (low budget)" } else { "normal" });
+        println!(
+            "  {:10} | energy = {:8.2} | tension = {}",
+            agent.name,
+            e,
+            if e > 500.0 {
+                "HIGH (low budget)"
+            } else {
+                "normal"
+            }
+        );
     }
 }

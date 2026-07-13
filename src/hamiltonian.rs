@@ -45,6 +45,7 @@ impl<S: Scalar, const N: usize> PhaseSpacePoint<S, N> {
 }
 
 /// A Hamiltonian system H(q, p, t).
+#[allow(non_snake_case)]
 pub trait Hamiltonian<S: Scalar, const N: usize> {
     /// The Hamiltonian function H(q, p).
     fn hamiltonian(&self, q: &[S; N], p: &[S; N]) -> S;
@@ -90,6 +91,7 @@ where
     pub potential: V,
 }
 
+#[allow(non_snake_case)]
 impl<S, V, const N: usize> Hamiltonian<S, N> for SeparableHamiltonian<S, V, N>
 where
     S: Scalar,
@@ -122,24 +124,24 @@ impl<S: Scalar, const N: usize> HamiltonianIntegrator<S, N> {
         let dt = self.dt;
 
         // Half-step momentum
-        let dH_dq = ham.dH_dq(&state.q, &state.p);
+        let d_h_dq = ham.dH_dq(&state.q, &state.p);
         let mut p_half = state.p;
         for i in 0..N {
-            p_half[i] = p_half[i] - dH_dq[i] * dt * half;
+            p_half[i] = p_half[i] - d_h_dq[i] * dt * half;
         }
 
         // Full-step position
-        let dH_dp = ham.dH_dp(&state.q, &p_half);
+        let d_h_dp = ham.dH_dp(&state.q, &p_half);
         let mut q_new = state.q;
         for i in 0..N {
-            q_new[i] = q_new[i] + dH_dp[i] * dt;
+            q_new[i] = q_new[i] + d_h_dp[i] * dt;
         }
 
         // Half-step momentum with new force
-        let dH_dq_new = ham.dH_dq(&q_new, &p_half);
+        let d_h_dq_new = ham.dH_dq(&q_new, &p_half);
         let mut p_new = p_half;
         for i in 0..N {
-            p_new[i] = p_new[i] - dH_dq_new[i] * dt * half;
+            p_new[i] = p_new[i] - d_h_dq_new[i] * dt * half;
         }
 
         PhaseSpacePoint::new(q_new, p_new)
@@ -170,12 +172,7 @@ impl<S: Scalar, const N: usize> HamiltonianIntegrator<S, N> {
 /// {f, g} = Σᵢ (∂f/∂qᵢ)(∂g/∂pᵢ) − (∂f/∂pᵢ)(∂g/∂qᵢ)
 ///
 /// f and g are represented as functions of (q, p).
-pub fn poisson_bracket<S, F, G, const N: usize>(
-    f: &F,
-    g: &G,
-    q: &[S; N],
-    p: &[S; N],
-) -> S
+pub fn poisson_bracket<S, F, G, const N: usize>(f: &F, g: &G, q: &[S; N], p: &[S; N]) -> S
 where
     S: Scalar,
     F: Fn(&[S; N], &[S; N]) -> S,
@@ -230,10 +227,18 @@ pub fn phase_space_volume<S: Scalar, const N: usize>(points: &[PhaseSpacePoint<S
         let mut p_min = points[0].p[i];
         let mut p_max = points[0].p[i];
         for pt in &points[1..] {
-            if pt.q[i] < q_min { q_min = pt.q[i]; }
-            if pt.q[i] > q_max { q_max = pt.q[i]; }
-            if pt.p[i] < p_min { p_min = pt.p[i]; }
-            if pt.p[i] > p_max { p_max = pt.p[i]; }
+            if pt.q[i] < q_min {
+                q_min = pt.q[i];
+            }
+            if pt.q[i] > q_max {
+                q_max = pt.q[i];
+            }
+            if pt.p[i] < p_min {
+                p_min = pt.p[i];
+            }
+            if pt.p[i] > p_max {
+                p_max = pt.p[i];
+            }
         }
         volume = volume * (q_max - q_min) * (p_max - p_min);
     }
@@ -249,7 +254,9 @@ pub fn verify_liouville<S: Scalar, const N: usize>(
 ) -> bool {
     let v0 = phase_space_volume(initial);
     let v1 = phase_space_volume(evolved);
-    if v0.is_zero() { return true; }
+    if v0.is_zero() {
+        return true;
+    }
     ((v1 - v0).abs() / v0.abs()) < tolerance
 }
 
@@ -262,7 +269,9 @@ pub fn find_recurrence<S: Scalar, const N: usize>(
     tolerance: S,
     min_step: usize,
 ) -> Option<usize> {
-    if trajectory.is_empty() { return None; }
+    if trajectory.is_empty() {
+        return None;
+    }
     let initial = &trajectory[0];
     for (i, pt) in trajectory.iter().enumerate().skip(min_step) {
         if pt.distance(initial) < tolerance {
@@ -301,7 +310,7 @@ mod tests {
     }
 
     #[test]
-    fn test_dH_dq() {
+    fn test_d_h_dq() {
         let ham = harmonic_1d();
         // H = p²/2 + q²/2 → ∂H/∂q = q
         let grad = ham.dH_dq(&[2.0], &[0.0]);
@@ -309,7 +318,7 @@ mod tests {
     }
 
     #[test]
-    fn test_dH_dp() {
+    fn test_d_h_dp() {
         let ham = harmonic_1d();
         // H = p²/2 + q²/2 → ∂H/∂p = p
         let grad = ham.dH_dp(&[0.0], &[3.0]);
@@ -327,7 +336,11 @@ mod tests {
         let traj = integrator.integrate(&ham, &initial, 10000);
         for pt in &traj[1..] {
             let h = ham.hamiltonian(&pt.q, &pt.p);
-            assert!((h - h0).abs() < 1e-4, "H should be conserved, got drift {}", (h - h0).abs());
+            assert!(
+                (h - h0).abs() < 1e-4,
+                "H should be conserved, got drift {}",
+                (h - h0).abs()
+            );
         }
     }
 
@@ -352,7 +365,10 @@ mod tests {
         let f = |q: &[f64; 1], _p: &[f64; 1]| q[0]; // f = q
         let g = |_q: &[f64; 1], p: &[f64; 1]| p[0]; // g = p
         let bracket = poisson_bracket(&f, &g, &[1.0], &[2.0]);
-        assert!((bracket - 1.0).abs() < 1e-6, "{{q,p}} should be 1, got {bracket}");
+        assert!(
+            (bracket - 1.0).abs() < 1e-6,
+            "{{q,p}} should be 1, got {bracket}"
+        );
     }
 
     #[test]
@@ -371,7 +387,10 @@ mod tests {
         let ham = |_q: &[f64; 1], p: &[f64; 1]| 0.5 * p[0] * p[0] + 0.5 * _q[0] * _q[0];
         let q_fn = |q: &[f64; 1], _p: &[f64; 1]| q[0];
         let bracket = poisson_bracket(&ham, &q_fn, &[1.0], &[2.0]);
-        assert!((bracket - (-2.0)).abs() < 1e-4, "{{H,q}} should be -p = -2, got {bracket}");
+        assert!(
+            (bracket - (-2.0)).abs() < 1e-4,
+            "{{H,q}} should be -p = -2, got {bracket}"
+        );
     }
 
     #[test]
@@ -383,7 +402,10 @@ mod tests {
             PhaseSpacePoint::new([1.0], [1.0]),
         ];
         let vol = phase_space_volume(&pts);
-        assert!((vol - 1.0_f64).abs() < 1e-10, "volume of unit square should be 1");
+        assert!(
+            (vol - 1.0_f64).abs() < 1e-10,
+            "volume of unit square should be 1"
+        );
     }
 
     #[test]
@@ -397,11 +419,13 @@ mod tests {
             .map(|i| PhaseSpacePoint::new([0.1 * i as f64], [0.1]))
             .collect();
 
-        let evolved: Vec<PhaseSpacePoint<f64, 1>> = initial.iter()
-            .map(|pt| integrator.step(&ham, pt))
-            .collect();
+        let evolved: Vec<PhaseSpacePoint<f64, 1>> =
+            initial.iter().map(|pt| integrator.step(&ham, pt)).collect();
 
-        assert!(verify_liouville(&initial, &evolved, 0.1), "Liouville should hold approximately");
+        assert!(
+            verify_liouville(&initial, &evolved, 0.1),
+            "Liouville should hold approximately"
+        );
     }
 
     #[test]
@@ -414,10 +438,16 @@ mod tests {
         // Integrate ~1.5 periods
         let traj = integrator.integrate(&ham, &initial, 1000);
         let recurrence = find_recurrence(&traj, 0.05, 100);
-        assert!(recurrence.is_some(), "should find near-recurrence for harmonic oscillator");
+        assert!(
+            recurrence.is_some(),
+            "should find near-recurrence for harmonic oscillator"
+        );
         // Period ≈ 2π ≈ 628 steps at dt=0.01
         if let Some(step) = recurrence {
-            assert!(step > 500 && step < 700, "recurrence at step {step}, expected ~628");
+            assert!(
+                step > 500 && step < 700,
+                "recurrence at step {step}, expected ~628"
+            );
         }
     }
 
@@ -437,5 +467,44 @@ mod tests {
             let h = ham.hamiltonian(&pt.q, &pt.p);
             assert!((h - h0).abs() < 1e-3);
         }
+    }
+
+    #[test]
+    fn test_find_recurrence_edge_cases() {
+        let ham = harmonic_1d();
+        let integrator = HamiltonianIntegrator::new(0.01);
+        let initial = PhaseSpacePoint::new([1.0], [0.0]);
+
+        assert_eq!(find_recurrence::<f64, 1>(&[], 0.1, 1), None);
+        let single = vec![initial.clone()];
+        assert_eq!(find_recurrence(&single, 0.1, 1), None);
+
+        let traj = integrator.integrate(&ham, &initial, 100);
+        // No recurrence before min_step.
+        assert_eq!(find_recurrence(&traj, 0.1, 10_000), None);
+    }
+
+    #[test]
+    fn test_verify_liouville_zero_volume() {
+        let initial = vec![PhaseSpacePoint::new([1.0], [2.0])];
+        let evolved = vec![PhaseSpacePoint::new([1.01], [2.01])];
+        // A single point has zero bounding-box volume, so verification is vacuously true.
+        assert!(verify_liouville(&initial, &evolved, 0.1));
+    }
+
+    #[test]
+    fn test_phase_space_volume_empty() {
+        let empty: Vec<PhaseSpacePoint<f64, 1>> = vec![];
+        assert_eq!(phase_space_volume(&empty), 0.0);
+    }
+
+    #[test]
+    fn test_integrate_zero_steps_returns_initial() {
+        let ham = harmonic_1d();
+        let integrator = HamiltonianIntegrator::new(0.01);
+        let initial = PhaseSpacePoint::new([1.0], [0.0]);
+        let traj = integrator.integrate(&ham, &initial, 0);
+        assert_eq!(traj.len(), 1);
+        assert_eq!(traj[0], initial);
     }
 }

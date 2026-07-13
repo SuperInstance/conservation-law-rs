@@ -10,6 +10,7 @@ jobs:
     steps:
       - uses: actions/checkout@v4
       - uses: dtolnay/rust-toolchain@stable
-      - run: cargo check
-      - run: cargo test
-      - run: cargo clippy -- -D warnings
+      - run: cargo fmt --check
+      - run: cargo check --all-targets
+      - run: cargo test --all-targets
+      - run: cargo clippy --all-targets -- -D warnings

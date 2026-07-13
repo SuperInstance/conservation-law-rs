@@ -12,9 +12,9 @@
 //! ```
 
 use conservation_law::lagrangian::{
-    AgentState, MechanicalLagrangian, SymplecticIntegrator, total_energy,
+    total_energy, AgentState, MechanicalLagrangian, SymplecticIntegrator,
 };
-use conservation_law::noether::{ChargeMonitor, TimeTranslationSymmetry, test_invariance};
+use conservation_law::noether::{test_invariance, ChargeMonitor, TimeTranslationSymmetry};
 
 fn main() {
     let target_temp = 22.0_f64; // °C
@@ -23,8 +23,8 @@ fn main() {
 
     // Thermal mass (inertia) and coupling constants
     let m = 10.0; // thermal mass
-    let k = 0.5;  // restoring force toward target
-    let c = 0.3;  // damping (heat loss to outside)
+    let k = 0.5; // restoring force toward target
+    let c = 0.3; // damping (heat loss to outside)
 
     println!("=== Thermostat Agent ===");
     println!("Target temperature: {}°C", target_temp);
@@ -76,8 +76,10 @@ fn main() {
         temp_monitor.push(temp);
 
         if step % 20 == 0 {
-            println!("{:4.0} | {:9.2} | {:5.2} | {:6.2} | {:7.2} | {:e}",
-                t, temp, state.q_dot[0], heater, e, drift);
+            println!(
+                "{:4.0} | {:9.2} | {:5.2} | {:6.2} | {:7.2} | {:e}",
+                t, temp, state.q_dot[0], heater, e, drift
+            );
         }
 
         // Symplectic step
@@ -94,30 +96,57 @@ fn main() {
     // -----------------------------------------------------------------
     println!("\n--- Thermostat Analysis ---");
     let final_temp = trajectory.last().unwrap().q[0];
-    println!("Final temperature: {:.2}°C (target: {}°C)", final_temp, target_temp);
+    println!(
+        "Final temperature: {:.2}°C (target: {}°C)",
+        final_temp, target_temp
+    );
     println!("Total heater energy used: {:.2} units", total_heater);
 
-    // Check energy conservation WITHOUT heater (autonomous system)
-    println!("\n--- Energy conservation check (heater off) ---");
+    // Check energy conservation for a CLOSED passive system (no outside coupling).
+    // The full thermostat potential above includes a dissipative coupling term
+    // c*T*(T - outside), so it is not a closed conservative system. To verify
+    // time-translation symmetry → energy conservation honestly, use only the
+    // conservative harmonic-well part for the passive check.
+    println!("\n--- Energy conservation check (closed passive system) ---");
+    let conservative_potential = |q: &[f64; 1]| {
+        let t = q[0];
+        0.5 * k * (t - target_temp).powi(2)
+    };
+    let passive_lagrangian = MechanicalLagrangian {
+        mass: m,
+        potential_fn: conservative_potential,
+    };
     let mut passive_state = AgentState::new([initial_temp], [0.0]);
-    let _passive_e0 = total_energy(&lagrangian, &passive_state);
+    let passive_e0 = total_energy(&passive_lagrangian, &passive_state);
     let mut passive_traj = vec![passive_state.clone()];
+    // Use a smaller dt for the passive conservation check so symplectic
+    // energy oscillations stay well below the tolerance.
+    let passive_integrator = SymplecticIntegrator::new(0.01).unwrap();
 
-    for _ in 0..200 {
-        passive_state = integrator.step(m, &potential, &passive_state).unwrap();
+    for _ in 0..2000 {
+        passive_state = passive_integrator
+            .step(m, &conservative_potential, &passive_state)
+            .unwrap();
         passive_traj.push(passive_state.clone());
     }
 
     let mut e_monitor = ChargeMonitor::new(1e-4);
     for s in &passive_traj {
-        e_monitor.push(total_energy(&lagrangian, s));
+        e_monitor.push(total_energy(&passive_lagrangian, s));
     }
-    println!("Passive system energy conserved: {} (max drift = {:e})",
-        e_monitor.is_conserved(), e_monitor.max_drift());
+    println!(
+        "Closed passive system energy conserved: {} (max drift = {:e}, e0 = {:.2})",
+        e_monitor.is_conserved(),
+        e_monitor.max_drift(),
+        passive_e0
+    );
 
-    // Time-translation invariance of the autonomous system
+    // Time-translation invariance of the autonomous closed system
     let time_sym = TimeTranslationSymmetry;
-    let inv = test_invariance(&lagrangian, &time_sym, &passive_traj[0], 1e-3, 1e-6);
-    println!("Time-translation invariance: {} (ΔL = {:e})", inv.invariant, inv.delta_lagrangian);
-    println!("This symmetry implies energy conservation in the passive system.");
+    let inv = test_invariance(&passive_lagrangian, &time_sym, &passive_traj[0], 1e-3, 1e-6);
+    println!(
+        "Time-translation invariance: {} (ΔL = {:e})",
+        inv.invariant, inv.delta_lagrangian
+    );
+    println!("For a closed system this symmetry implies energy conservation.");
 }

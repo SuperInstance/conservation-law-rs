@@ -17,7 +17,7 @@
 use conservation_law::lagrangian::{
     AgentState, Lagrangian, MechanicalLagrangian, SymplecticIntegrator,
 };
-use conservation_law::noether::{ChargeMonitor, Symmetry, TranslationSymmetry, noether_charge};
+use conservation_law::noether::{noether_charge, ChargeMonitor, Symmetry, TranslationSymmetry};
 
 /// A fleet agent with an energy budget.
 struct BudgetAgent {
@@ -47,17 +47,40 @@ fn main() {
     const TOTAL_BUDGET: f64 = 1000.0;
     const NUM_AGENTS: usize = 5;
 
-    println!("=== Conservation Budget: {} tokens across {} agents ===\n", TOTAL_BUDGET, NUM_AGENTS);
+    println!(
+        "=== Conservation Budget: {} tokens across {} agents ===\n",
+        TOTAL_BUDGET, NUM_AGENTS
+    );
 
     // Allocate evenly: each agent gets 200 tokens initially
     let base_alloc = TOTAL_BUDGET / NUM_AGENTS as f64;
 
     let mut agents: Vec<BudgetAgent> = vec![
-        BudgetAgent { name: "Planner",    state: AgentState::new([base_alloc], [0.0]), mass: 1.0 },
-        BudgetAgent { name: "Coder",      state: AgentState::new([base_alloc], [0.0]), mass: 1.0 },
-        BudgetAgent { name: "Reviewer",   state: AgentState::new([base_alloc], [0.0]), mass: 1.0 },
-        BudgetAgent { name: "Tester",     state: AgentState::new([base_alloc], [0.0]), mass: 1.0 },
-        BudgetAgent { name: "Deployer",   state: AgentState::new([base_alloc], [0.0]), mass: 1.0 },
+        BudgetAgent {
+            name: "Planner",
+            state: AgentState::new([base_alloc], [0.0]),
+            mass: 1.0,
+        },
+        BudgetAgent {
+            name: "Coder",
+            state: AgentState::new([base_alloc], [0.0]),
+            mass: 1.0,
+        },
+        BudgetAgent {
+            name: "Reviewer",
+            state: AgentState::new([base_alloc], [0.0]),
+            mass: 1.0,
+        },
+        BudgetAgent {
+            name: "Tester",
+            state: AgentState::new([base_alloc], [0.0]),
+            mass: 1.0,
+        },
+        BudgetAgent {
+            name: "Deployer",
+            state: AgentState::new([base_alloc], [0.0]),
+            mass: 1.0,
+        },
     ];
 
     // Each agent has a "potential" that grows with allocation (diminishing returns)
@@ -65,7 +88,10 @@ fn main() {
     let k = 0.01;
     let potential = |q: &[f64; 1]| 0.5 * k * q[0] * q[0];
 
-    let lagrangian = MechanicalLagrangian { mass: 1.0, potential_fn: potential };
+    let lagrangian = MechanicalLagrangian {
+        mass: 1.0,
+        potential_fn: potential,
+    };
 
     // Helper to compute fleet-wide totals
     let fleet_totals = |agents: &[BudgetAgent]| -> (f64, f64, f64) {
@@ -80,7 +106,10 @@ fn main() {
     println!("  γ (productive) = {:.2}", gamma0);
     println!("  η (overhead)   = {:.2}", eta0);
     println!("  C (total)      = {:.2}", total0);
-    println!("  γ + η          = {:.2}  (should equal C in physical analogy)", gamma0 + eta0);
+    println!(
+        "  γ + η          = {:.2}  (should equal C in physical analogy)",
+        gamma0 + eta0
+    );
     println!();
 
     // -----------------------------------------------------------------
@@ -92,7 +121,9 @@ fn main() {
 
     // To conserve the fleet budget, redistribute proportionally from others
     let excess = overspend;
-    let others_total: f64 = agents.iter().enumerate()
+    let others_total: f64 = agents
+        .iter()
+        .enumerate()
         .filter(|(i, _)| *i != 1)
         .map(|(_, a)| a.tokens_allocated())
         .sum();
@@ -107,7 +138,12 @@ fn main() {
     let (gamma1, eta1, total1) = fleet_totals(&agents);
     println!("After redistribution:");
     println!("  γ = {:.2}, η = {:.2}, C = {:.2}", gamma1, eta1, total1);
-    println!("  Budget conserved: {} (was {}, now {})", total0 == total1, total0, total1);
+    println!(
+        "  Budget conserved: {} (was {}, now {})",
+        total0 == total1,
+        total0,
+        total1
+    );
     println!();
 
     // -----------------------------------------------------------------
@@ -130,15 +166,18 @@ fn main() {
         0.5 * 0.005 * displacement * displacement
     };
 
-    println!("Step | {:>8} | {:>8} | {:>8} | {:>8} | {:>8} | {:>10}",
-             agents[0].name, agents[1].name, agents[2].name, agents[3].name, agents[4].name, "Total");
+    println!(
+        "Step | {:>8} | {:>8} | {:>8} | {:>8} | {:>8} | {:>10}",
+        agents[0].name, agents[1].name, agents[2].name, agents[3].name, agents[4].name, "Total"
+    );
     println!("-----|----------|----------|----------|----------|----------|------------");
 
     for step in 0..=20 {
         let total: f64 = agents.iter().map(|a| a.tokens_allocated()).sum();
 
         if step % 4 == 0 {
-            println!(" {:3} | {:8.2} | {:8.2} | {:8.2} | {:8.2} | {:8.2} | {:10.2}",
+            println!(
+                " {:3} | {:8.2} | {:8.2} | {:8.2} | {:8.2} | {:8.2} | {:10.2}",
                 step,
                 agents[0].tokens_allocated(),
                 agents[1].tokens_allocated(),
@@ -172,8 +211,14 @@ fn main() {
     let final_total: f64 = agents.iter().map(|a| a.tokens_allocated()).sum();
     println!();
     println!("Budget conservation check:");
-    println!("  Final total allocation = {:.2} (budget = {})", final_total, TOTAL_BUDGET);
-    println!("  Drift = {:e} (renormalized to zero)\n", (final_total - TOTAL_BUDGET).abs());
+    println!(
+        "  Final total allocation = {:.2} (budget = {})",
+        final_total, TOTAL_BUDGET
+    );
+    println!(
+        "  Drift = {:e} (renormalized to zero)\n",
+        (final_total - TOTAL_BUDGET).abs()
+    );
 
     // -----------------------------------------------------------------
     // Linear momentum analogy: tokens transferred between agents
@@ -186,6 +231,9 @@ fn main() {
         let p = noether_charge(agent.mass, &agent.state, &gen);
         momentum_monitor.push(p);
     }
-    println!("  Transfer momentum per agent: {:?}", momentum_monitor.values);
+    println!(
+        "  Transfer momentum per agent: {:?}",
+        momentum_monitor.values
+    );
     println!("  This is the analog of 'budget flow' between agents.");
 }

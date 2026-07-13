@@ -20,6 +20,16 @@ pub trait Symmetry<S: Scalar, const N: usize> {
     fn generator_q(&self, state: &AgentState<S, N>) -> [S; N];
     /// Name of the symmetry for diagnostics.
     fn name(&self) -> &'static str;
+
+    /// Surface term `F` such that the Lagrangian changes by a total derivative
+    /// `δL = ε dF/dt` under the symmetry.
+    ///
+    /// For internal symmetries (translation, rotation, ...) `δL = 0` and this
+    /// returns zero. For time translation `F = L`, so the full conserved
+    /// Noether charge becomes `Σ pᵢ δqᵢ − F = H`, i.e. the energy.
+    fn surface_term(&self, _lagrangian: &dyn Lagrangian<S, N>, _state: &AgentState<S, N>) -> S {
+        S::zero()
+    }
 }
 
 /// Spatial translation symmetry along axis `axis`.
@@ -53,13 +63,15 @@ pub struct TimeTranslationSymmetry;
 
 impl<S: Scalar, const N: usize> Symmetry<S, N> for TimeTranslationSymmetry {
     fn transform(&self, state: &AgentState<S, N>, epsilon: S) -> AgentState<S, N> {
-        // First-order approximation: q(t+ε) ≈ q + ε q̇,  q̇(t+ε) ≈ q̇ + ε q̈
+        // First-order approximation: q(t+ε) ≈ q + ε q̇.
+        // We keep q̇ unchanged because the trait does not have access to the
+        // equations of motion needed to compute q̈; this is sufficient for the
+        // generator and the surface-term correction below.
         let mut q_new = [S::zero(); N];
-        let q_dot_new = [S::zero(); N];
         for (i, q_new_i) in q_new.iter_mut().enumerate().take(N) {
             *q_new_i = state.q[i] + epsilon * state.q_dot[i];
         }
-        AgentState::new(q_new, q_dot_new)
+        AgentState::new(q_new, state.q_dot)
     }
 
     fn generator_q(&self, state: &AgentState<S, N>) -> [S; N] {
@@ -68,6 +80,12 @@ impl<S: Scalar, const N: usize> Symmetry<S, N> for TimeTranslationSymmetry {
 
     fn name(&self) -> &'static str {
         "time_translation"
+    }
+
+    fn surface_term(&self, lagrangian: &dyn Lagrangian<S, N>, state: &AgentState<S, N>) -> S {
+        // For time translation δL = ε dL/dt, so F = L and the conserved
+        // Noether charge is Q = Σ pᵢ δqᵢ − L = H = T + V.
+        lagrangian.lagrangian(state)
     }
 }
 
@@ -153,6 +171,7 @@ pub fn noether_charge<S: Scalar, const N: usize>(
 }
 
 /// A conserved-quantity monitor that tracks a charge along a trajectory.
+#[derive(Debug, Clone)]
 pub struct ChargeMonitor<S: Scalar> {
     pub values: Vec<S>,
     pub tolerance: S,
@@ -184,7 +203,10 @@ impl<S: Scalar> ChargeMonitor<S> {
             return S::zero();
         }
         let q0 = self.values[0];
-        self.values.iter().map(|&v| (v - q0).abs()).fold(S::zero(), S::max)
+        self.values
+            .iter()
+            .map(|&v| (v - q0).abs())
+            .fold(S::zero(), S::max)
     }
 }
 
@@ -213,7 +235,7 @@ pub fn verify_noether<S: Scalar, const N: usize, L: Lagrangian<S, N>>(
     let mut monitor = ChargeMonitor::new(tolerance);
     for state in trajectory {
         let gen = symmetry.generator_q(state);
-        let q = noether_charge(mass, state, &gen);
+        let q = noether_charge(mass, state, &gen) - symmetry.surface_term(lagrangian, state);
         monitor.push(q);
     }
 
@@ -231,7 +253,7 @@ pub fn verify_noether<S: Scalar, const N: usize, L: Lagrangian<S, N>>(
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::lagrangian::{MechanicalLagrangian, SymplecticIntegrator, total_energy};
+    use crate::lagrangian::{total_energy, MechanicalLagrangian, SymplecticIntegrator};
     use approx::assert_relative_eq;
 
     #[test]
@@ -245,7 +267,10 @@ mod tests {
         let sym = TranslationSymmetry::<2> { axis: 0 };
 
         let inv = test_invariance(&lagrangian, &sym, &state, 1e-3, 1e-10);
-        assert!(inv.invariant, "free particle should be translation invariant");
+        assert!(
+            inv.invariant,
+            "free particle should be translation invariant"
+        );
     }
 
     #[test]
@@ -276,7 +301,10 @@ mod tests {
         let sym = RotationSymmetry { i: 0, j: 1 };
 
         let inv = test_invariance(&lagrangian, &sym, &state, 1e-4, 1e-10);
-        assert!(inv.invariant, "central potential should be rotation invariant");
+        assert!(
+            inv.invariant,
+            "central potential should be rotation invariant"
+        );
     }
 
     #[test]
@@ -357,5 +385,82 @@ mod tests {
             e_monitor.push(total_energy(&lagrangian, state));
         }
         assert!(e_monitor.is_conserved());
+    }
+
+    #[test]
+    fn verify_noether_time_translation_yields_energy() {
+        // Regression check: TimeTranslationSymmetry must produce the Hamiltonian
+        // H = T + V as the conserved Noether charge, not 2T.
+        let m = 1.0_f64;
+        let k = 1.0_f64;
+        let potential = |q: &[f64; 1]| 0.5 * k * q[0] * q[0];
+        let lagrangian = MechanicalLagrangian {
+            mass: m,
+            potential_fn: potential,
+        };
+        let dt = 0.001;
+        let integrator = SymplecticIntegrator::new(dt).unwrap();
+        // Start away from the turning point so q_dot is non-zero along the orbit.
+        let initial = AgentState::new([0.8], [0.6]);
+        let traj = integrator.integrate(m, &potential, &initial, 2000).unwrap();
+
+        let e0 = total_energy(&lagrangian, &initial);
+        let sym = TimeTranslationSymmetry;
+        let monitor = verify_noether(&lagrangian, &sym, &traj, m, 1e-4, 1e-4)
+            .expect("energy should be conserved under time translation");
+
+        assert!(
+            monitor.is_conserved(),
+            "Noether charge for time translation should be conserved (max drift = {})",
+            monitor.max_drift()
+        );
+        // The conserved charge must equal the physical energy E = T + V.
+        assert_relative_eq!(monitor.values[0], e0, epsilon = 1e-10);
+    }
+
+    #[test]
+    fn verify_noether_rejects_non_invariant_symmetry() {
+        let potential = |q: &[f64; 1]| 0.5 * q[0] * q[0];
+        let lagrangian = MechanicalLagrangian {
+            mass: 1.0,
+            potential_fn: potential,
+        };
+        let initial = AgentState::new([1.0], [0.0]);
+        let traj = vec![initial.clone()];
+        let sym = TranslationSymmetry::<1> { axis: 0 };
+
+        let result = verify_noether(&lagrangian, &sym, &traj, 1.0, 1e-3, 1e-10);
+        assert!(result.is_err());
+        assert!(result.unwrap_err().contains("not invariant"));
+    }
+
+    #[test]
+    fn verify_noether_rejects_non_conserved_charge() {
+        // Use a free-particle Lagrangian (translation invariant) but supply an
+        // invalid trajectory where velocity changes, so the Noether charge
+        // (linear momentum) drifts. This exercises the "charge not conserved"
+        // error path independently of the "Lagrangian not invariant" path.
+        let potential = |_q: &[f64; 1]| 0.0_f64;
+        let lagrangian = MechanicalLagrangian {
+            mass: 1.0,
+            potential_fn: potential,
+        };
+        let traj = vec![
+            AgentState::new([0.0], [1.0]),
+            AgentState::new([0.1], [2.0]),
+            AgentState::new([0.3], [3.0]),
+        ];
+        let sym = TranslationSymmetry::<1> { axis: 0 };
+
+        let result = verify_noether(&lagrangian, &sym, &traj, 1.0, 1e-3, 1e-10);
+        assert!(result.is_err());
+        assert!(result.unwrap_err().contains("not conserved"));
+    }
+
+    #[test]
+    fn charge_monitor_empty_is_vacuously_conserved() {
+        let monitor = ChargeMonitor::<f64>::new(1e-6);
+        assert!(monitor.is_conserved());
+        assert_eq!(monitor.max_drift(), 0.0);
     }
 }
